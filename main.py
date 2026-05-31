@@ -5,7 +5,77 @@ import ssl
 import hashlib
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
+
+
+progress_window = None
+progress_label = None
+progress_detail_label = None
+progress_bar = None
+
+
+def create_progress_window():
+    """Show processing status because the packaged exe has no console."""
+    global progress_window, progress_label, progress_detail_label, progress_bar
+
+    progress_window = tk.Tk()
+    progress_window.title("雀魂スコアOCR - 処理中")
+    progress_window.geometry("560x150")
+    progress_window.resizable(False, False)
+    progress_window.attributes("-topmost", True)
+    progress_window.protocol("WM_DELETE_WINDOW", lambda: None)
+
+    progress_label = tk.Label(progress_window, text="準備中...", anchor="w", font=("", 11))
+    progress_label.pack(fill="x", padx=16, pady=(16, 4))
+
+    progress_detail_label = tk.Label(progress_window, text="", anchor="w")
+    progress_detail_label.pack(fill="x", padx=16, pady=(0, 8))
+
+    progress_bar = ttk.Progressbar(
+        progress_window,
+        orient="horizontal",
+        mode="determinate",
+        maximum=1,
+        value=0
+    )
+    progress_bar.pack(fill="x", padx=16, pady=(0, 14))
+    progress_window.update()
+
+
+def update_progress(message, detail="", value=None, maximum=None):
+    if progress_window is None:
+        return
+
+    progress_label.configure(text=message)
+    progress_detail_label.configure(text=detail)
+
+    if maximum is not None:
+        progress_bar.configure(maximum=max(maximum, 1))
+
+    if value is not None:
+        progress_bar.configure(value=value)
+
+    progress_window.update()
+
+
+def hide_progress():
+    if progress_window is not None:
+        progress_window.withdraw()
+
+
+def show_progress():
+    if progress_window is not None:
+        progress_window.deiconify()
+        progress_window.lift()
+        progress_window.update()
+
+
+def close_progress():
+    global progress_window
+
+    if progress_window is not None:
+        progress_window.destroy()
+        progress_window = None
 
 
 
@@ -148,6 +218,8 @@ def bind_vertical_mousewheel(widget, canvas):
 def select_players_gui(player_names):
     selected_players = []
 
+    hide_progress()
+
     root = tk.Tk()
     root.title("出力するプレイヤーを選択")
     root.geometry("460x650")
@@ -234,11 +306,14 @@ def select_players_gui(player_names):
     ).pack(pady=10)
 
     root.mainloop()
+    show_progress()
 
     return selected_players
 
 
 def ask_name_manual_gui(filename, rank):
+    hide_progress()
+
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -250,6 +325,7 @@ def ask_name_manual_gui(filename, rank):
     )
 
     root.destroy()
+    show_progress()
 
     if value is None:
         return ""
@@ -294,6 +370,12 @@ IMAGE_DIR, OUTPUT_DIR, TEMPLATE_DIR = select_run_settings_gui(
 ALIAS_PATH = os.path.join(OUTPUT_DIR, "name_alias.csv")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+create_progress_window()
+update_progress(
+    "名前OCRモデルを読み込んでいます...",
+    "初回起動時は少し時間がかかります。"
+)
 
 easy_reader = easyocr.Reader(
     ["ja", "en"],
@@ -411,6 +493,8 @@ def confirm_names_gui(player_names, name_sources=None):
 
     if not player_names:
         return {}
+
+    hide_progress()
 
     corrections = {}
     name_sources = name_sources or {}
@@ -586,6 +670,7 @@ def confirm_names_gui(player_names, name_sources=None):
     ).pack(side="left", padx=5)
 
     root.mainloop()
+    show_progress()
 
     return corrections
 
@@ -912,6 +997,8 @@ def detect_minus_from_score_bin(score_bin):
 old_dfs = {}
 registered_hashes = set()
 
+update_progress("過去の集計データを確認しています...")
+
 for game_type in ["yonma", "sanma"]:
     master_path = os.path.join(
         OUTPUT_DIR,
@@ -965,10 +1052,27 @@ def detect_game_type(img_cv):
 # OCR処理
 # =========================
 
-for filename in os.listdir(IMAGE_DIR):
+input_filenames = [
+    filename
+    for filename in os.listdir(IMAGE_DIR)
+    if filename.lower().endswith((".png", ".jpg", ".jpeg"))
+]
 
-    if not filename.lower().endswith((".png", ".jpg", ".jpeg")):
-        continue
+update_progress(
+    "画像を読み込んでいます...",
+    f"対象画像: {len(input_filenames)}件",
+    value=0,
+    maximum=len(input_filenames)
+)
+
+for image_index, filename in enumerate(input_filenames, start=1):
+
+    update_progress(
+        f"画像を処理しています ({image_index}/{len(input_filenames)})",
+        filename,
+        value=image_index - 1,
+        maximum=len(input_filenames)
+    )
 
     image_path = os.path.join(IMAGE_DIR, filename)
 
@@ -976,6 +1080,12 @@ for filename in os.listdir(IMAGE_DIR):
 
     if image_hash in registered_hashes:
         print("登録済み画像のためスキップ:", filename)
+        update_progress(
+            f"登録済み画像をスキップしました ({image_index}/{len(input_filenames)})",
+            filename,
+            value=image_index,
+            maximum=len(input_filenames)
+        )
         continue
 
     print("画像:", image_path)
@@ -1006,6 +1116,12 @@ for filename in os.listdir(IMAGE_DIR):
     )
 
     for rank in range(1, player_count + 1):
+        update_progress(
+            f"画像を処理しています ({image_index}/{len(input_filenames)})",
+            f"{filename} / {game_type_label} / {rank}位をOCR中",
+            value=image_index - 1,
+            maximum=len(input_filenames)
+        )
 
         template_path = os.path.join(TEMPLATE_DIR, f"{rank}.png")
         template = cv2.imread(template_path)
@@ -1204,6 +1320,12 @@ for filename in os.listdir(IMAGE_DIR):
         print("確認:", check_flag)
 
     registered_hashes.add(image_hash)
+    update_progress(
+        f"画像を処理しました ({image_index}/{len(input_filenames)})",
+        filename,
+        value=image_index,
+        maximum=len(input_filenames)
+    )
 
     print("完了")
 
@@ -1809,12 +1931,19 @@ def generate_reports(game_type):
 
 
 for game_type in ["yonma", "sanma"]:
+    game_type_label = "四麻" if game_type == "yonma" else "サンマ"
+    update_progress(
+        "Excelファイルを作成しています...",
+        game_type_label
+    )
     generate_reports(game_type)
 
 
 # =========================
 # 一時画像削除
 # =========================
+
+update_progress("一時ファイルを整理しています...")
 
 for file in os.listdir(OUTPUT_DIR):
     if file.lower().endswith((".png", ".jpg", ".jpeg")):
@@ -1824,6 +1953,13 @@ for file in os.listdir(OUTPUT_DIR):
             pass
 
 print("一時画像を削除しました")
+update_progress("完了しました", "Excelファイルの作成が完了しました。")
+messagebox.showinfo(
+    "雀魂スコアOCR",
+    "処理が完了しました。",
+    parent=progress_window
+)
+close_progress()
 
 
 
