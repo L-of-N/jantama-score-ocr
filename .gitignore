@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.bak*
+
+build/
+dist/
+*.zip
+
+images/*
+!images/.gitkeep
+
+output/*
+!output/.gitkeep
+
