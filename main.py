@@ -220,7 +220,7 @@ def select_players_gui(player_names):
 
     hide_progress()
 
-    root = tk.Tk()
+    root = tk.Toplevel(progress_window)
     root.title("出力するプレイヤーを選択")
     root.geometry("460x650")
     root.minsize(360, 360)
@@ -305,7 +305,7 @@ def select_players_gui(player_names):
         command=execute
     ).pack(pady=10)
 
-    root.mainloop()
+    root.wait_window()
     show_progress()
 
     return selected_players
@@ -314,7 +314,7 @@ def select_players_gui(player_names):
 def ask_name_manual_gui(filename, rank):
     hide_progress()
 
-    root = tk.Tk()
+    root = tk.Toplevel(progress_window)
     root.withdraw()
     root.attributes("-topmost", True)
 
@@ -499,7 +499,7 @@ def confirm_names_gui(player_names, name_sources=None):
     corrections = {}
     name_sources = name_sources or {}
 
-    root = tk.Tk()
+    root = tk.Toplevel(progress_window)
     root.title("名前OCR確認")
     root.geometry("1120x680")
     root.minsize(850, 420)
@@ -600,9 +600,11 @@ def confirm_names_gui(player_names, name_sources=None):
             anchor="w"
         ).pack(fill="x", padx=10, pady=(10, 5))
 
-        image = Image.open(preview_path)
-        image.thumbnail((900, 500))
-        photo = ImageTk.PhotoImage(image)
+        with Image.open(preview_path) as image:
+            image.thumbnail((900, 500))
+            preview_image = image.copy()
+
+        photo = ImageTk.PhotoImage(preview_image, master=source_window)
         image_label = tk.Label(source_window, image=photo)
         image_label.image = photo
         image_label.pack(padx=10, pady=5)
@@ -669,7 +671,7 @@ def confirm_names_gui(player_names, name_sources=None):
         width=18
     ).pack(side="left", padx=5)
 
-    root.mainloop()
+    root.wait_window()
     show_progress()
 
     return corrections
