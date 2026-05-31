@@ -27,6 +27,7 @@
 ## 配布版の使い方
 
 配布版を受け取った場合は、以下のフォルダごと使ってください。
+Pythonやバッチファイルの実行は不要です。
 
 ```text
 JantamaScore/
@@ -162,6 +163,7 @@ dist/JantamaScore/
 ```
 
 配布するときは、この `JantamaScore` フォルダごと渡してください。
+zipへ圧縮してGitHub Releasesなどで配布できます。
 
 ## 注意点
 
